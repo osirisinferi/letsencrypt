@@ -16,7 +16,7 @@ from letsencrypt import le_util
 
 logger = logging.getLogger(__name__)
 
-ALL_FOUR = ("cert", "privkey", "chain", "fullchain")
+ALL_FOUR = ("cert-ecdsa", "privkey-ecdsa", "chain-ecdsa", "fullchain-ecdsa")
 
 
 def config_with_defaults(config=None):
