@@ -14,8 +14,14 @@ import six
 import zope.component
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import PrivateFormat
+from cryptography.hazmat.primitives.serialization import NoEncryption
 from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import generate_private_key
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
+from cryptography.hazmat.primitives.asymmetric.ec import SECP384R1
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 # https://github.com/python/typeshed/tree/master/third_party/2/cryptography
@@ -34,29 +40,22 @@ logger = logging.getLogger(__name__)
 
 
 # High level functions
-def init_save_key(key_size, key_dir, keyname="key-certbot.pem"):
-    """Initializes and saves a privkey.
+def save_key(key_pem, key_dir, keyname="key-certbot.pem"):
+    """Saves an earlier initialized privkey.
 
-    Inits key and saves it in PEM format on the filesystem.
+    Saves a generated private key in PEM format on the filesystem.
 
     .. note:: keyname is the attempted filename, it may be different if a file
         already exists at the path.
 
-    :param int key_size: RSA key size in bits
+    :param str key_pem: The PEM encoded private key to save
     :param str key_dir: Key save directory.
     :param str keyname: Filename of key
 
     :returns: Key
     :rtype: :class:`certbot.util.Key`
 
-    :raises ValueError: If unable to generate the key given key_size.
-
     """
-    try:
-        key_pem = make_key(key_size)
-    except ValueError as err:
-        logger.error("", exc_info=True)
-        raise err
 
     config = zope.component.getUtility(interfaces.IConfig)
     # Save file
@@ -66,7 +65,7 @@ def init_save_key(key_size, key_dir, keyname="key-certbot.pem"):
         os.path.join(key_dir, keyname), 0o600, "wb")
     with key_f:
         key_f.write(key_pem)
-    logger.debug("Generating key (%d bits): %s", key_size, key_path)
+    logger.debug("Saving key: %s", key_path)
 
     return util.Key(key_path, key_pem)
 
@@ -176,7 +175,7 @@ def import_csr_file(csrfile, data):
     return PEM, util.CSR(file=csrfile, data=data_pem, form="pem"), domains
 
 
-def make_key(bits):
+def make_key_rsa(bits):
     """Generate PEM encoded RSA key.
 
     :param int bits: Number of bits, at least 1024.
@@ -190,6 +189,28 @@ def make_key(bits):
     key.generate_key(crypto.TYPE_RSA, bits)
     return crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
 
+def make_key_ecdsa(curve):
+    """Generate PEM encoded ECDSA key.
+
+    :param str curve: The ECDSA curve used (currently P-256 [prime256v1] or P-384 [secp384r1])
+
+    :returns: new ECDSA key in PEM form with the specified curve
+    :rtype: str
+
+    """
+
+    if curve.lower() == "p-256":
+        private_key = generate_private_key(SECP256R1(), default_backend())
+    elif curve.lower() == "p-384":
+        private_key = generate_private_key(SECP384R1(), default_backend())
+    else:
+        raise errors.Error(
+            "Elliptic curve for ECDSA keypair generation not valid. Current allowed curves "
+            "are \"P-256\" or \"P-384\".")
+
+    return private_key.private_bytes(
+        encoding=Encoding.PEM, format=PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=NoEncryption())
 
 def valid_privkey(privkey):
     """Is valid RSA private key?
