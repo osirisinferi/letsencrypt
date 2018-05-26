@@ -1435,7 +1435,9 @@ class MainTest(test_util.ConfigTestCase):  # pylint: disable=too-many-public-met
                         mocked_storage = mock.MagicMock()
                         mocked_account.AccountFileStorage.return_value = mocked_storage
                         mocked_storage.find_all.return_value = ["an account"]
-                        mocked_det.return_value = (mock.MagicMock(), "foo")
+                        mock_acc = mock.MagicMock()
+                        mock_regr = mock_acc.regr
+                        mocked_det.return_value = (mock_acc, "foo")
                         cb_client = mock.MagicMock()
                         mocked_client.Client.return_value = cb_client
                         x = self._call_no_clientmock(
@@ -1445,8 +1447,10 @@ class MainTest(test_util.ConfigTestCase):  # pylint: disable=too-many-public-met
                         self.assertTrue(x[0] is None)
                         # and we got supposedly did update the registration from
                         # the server
-                        self.assertTrue(
-                            cb_client.acme.update_registration.called)
+                        reg_arg = cb_client.acme.update_registration.call_args[0][0]
+                        # Test the return value of .update() was used because
+                        # the regr is immutable.
+                        self.assertEqual(reg_arg, mock_regr.update())
                         # and we saved the updated registration on disk
                         self.assertTrue(mocked_storage.save_regr.called)
                         self.assertTrue(
@@ -1460,7 +1464,8 @@ class MainTest(test_util.ConfigTestCase):  # pylint: disable=too-many-public-met
                           None, None, None)
 
         with mock.patch('certbot.updater.logger.warning') as mock_log:
-            updater.run_generic_updaters(None, None, None)
+            self.config.dry_run = False
+            updater.run_generic_updaters(self.config, None, None)
             self.assertTrue(mock_log.called)
             self.assertTrue("Could not choose appropriate plugin for updaters"
                             in mock_log.call_args[0][0])
