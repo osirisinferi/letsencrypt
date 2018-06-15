@@ -324,8 +324,8 @@ class Client(object):
         if len(key_types) != 1:
             raise errors.Error("Currently, only one key type is supported.")
 
-        for key in key_types:
-            if key.lower() not in valid_key_types:
+        for key_algo in key_types:
+            if key_algo.lower() not in valid_key_types:
                 raise errors.Error("Key algorithm not valid, try \"RSA\" or \"ECDSA\".")
 
         # TODO: Implement the issuance of multiple certificates with different key types
