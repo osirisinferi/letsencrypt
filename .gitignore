@@ -6,7 +6,8 @@ dist*/
 /venv*/
 /kgs/
 /.tox/
-/releases/
+/releases*/
+/log*
 letsencrypt.log
 certbot.log
 letsencrypt-auto-source/letsencrypt-auto.sig.lzma.base64
@@ -39,6 +40,10 @@ tests/letstest/venv/
 # pytest cache
 .cache
 .mypy_cache/
+.pytest_cache/
 
 # docker files
 .docker
+
+# certbot tests
+.certbot_test_workspace

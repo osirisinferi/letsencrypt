@@ -14,7 +14,11 @@ Named Arguments
                                             DNS to propagate before asking the
                                             ACME server to verify the DNS
                                             record.
-                                            (Default: 960)
+                                            (Default: 1200 because Linode
+                                            updates its first DNS every 15
+                                            minutes and we allow 5 more minutes
+                                            for the update to reach the other 5
+                                            servers)
 ==========================================  ===================================
 
 
@@ -23,7 +27,8 @@ Credentials
 
 Use of this plugin requires a configuration file containing Linode API
 credentials, obtained from your Linode account's `Applications & API
-Tokens page <https://manager.linode.com/profile/api>`_.
+Tokens page (legacy) <https://manager.linode.com/profile/api>`_ or `Applications
+& API Tokens page (new) <https://cloud.linode.com/profile/tokens>`_.
 
 .. code-block:: ini
    :name: credentials.ini
@@ -31,6 +36,7 @@ Tokens page <https://manager.linode.com/profile/api>`_.
 
    # Linode API credentials used by Certbot
    dns_linode_key = 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ64
+   dns_linode_version = [<blank>|3|4]
 
 The path to this file can be provided interactively or using the
 ``--dns-linode-credentials`` command-line argument. Certbot records the path
@@ -74,13 +80,15 @@ Examples
      -d www.example.com
 
 .. code-block:: bash
-   :caption: To acquire a certificate for ``example.com``, waiting 60 seconds
-             for DNS propagation
+   :caption: To acquire a certificate for ``example.com``, waiting 1000 seconds
+             for DNS propagation (Linode updates its first DNS every 15 minutes
+             and we allow some extra time for the update to reach the other 5
+             servers)
 
    certbot certonly \\
      --dns-linode \\
      --dns-linode-credentials ~/.secrets/certbot/linode.ini \\
-     --dns-linode-propagation-seconds 60 \\
+     --dns-linode-propagation-seconds 1000 \\
      -d example.com
 
 """

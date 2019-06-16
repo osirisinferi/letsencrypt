@@ -57,7 +57,7 @@ class Authenticator(dns_common.DNSAuthenticator):
     def _validate_algorithm(self, credentials):
         algorithm = credentials.conf('algorithm')
         if algorithm:
-            if not self.ALGORITHMS.get(algorithm):
+            if not self.ALGORITHMS.get(algorithm.upper()):
                 raise errors.PluginError("Unknown algorithm: {0}.".format(algorithm))
 
     def _setup_credentials(self):
@@ -220,4 +220,3 @@ class _RFC2136Client(object):
         except Exception as e:
             raise errors.PluginError('Encountered error when making query: {0}'
                                      .format(e))
-

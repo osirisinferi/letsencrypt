@@ -1,7 +1,6 @@
 
 """Tests for certbot.cert_manager."""
 # pylint: disable=protected-access
-import os
 import re
 import shutil
 import tempfile
@@ -12,10 +11,9 @@ import mock
 
 from certbot import configuration
 from certbot import errors
-
+from certbot.compat import os
 from certbot.display import util as display_util
 from certbot.storage import ALL_FOUR
-
 from certbot.tests import storage_test
 from certbot.tests import util as test_util
 
@@ -39,9 +37,8 @@ class BaseCertManagerTest(test_util.ConfigTestCase):
         # We also create a file that isn't a renewal config in the same
         # location to test that logic that reads in all-and-only renewal
         # configs will ignore it and NOT attempt to parse it.
-        junk = open(os.path.join(self.config.renewal_configs_dir, "IGNORE.THIS"), "w")
-        junk.write("This file should be ignored!")
-        junk.close()
+        with open(os.path.join(self.config.renewal_configs_dir, "IGNORE.THIS"), "w") as junk:
+            junk.write("This file should be ignored!")
 
     def _set_up_config(self, domain, custom_archive):
         # TODO: maybe provide NamespaceConfig.make_dirs?
@@ -204,10 +201,11 @@ class CertificatesTest(BaseCertManagerTest):
         shutil.rmtree(empty_tempdir)
 
     @mock.patch('certbot.cert_manager.ocsp.RevocationChecker.ocsp_revoked')
-    def test_report_human_readable(self, mock_revoked):
+    def test_report_human_readable(self, mock_revoked): #pylint: disable=too-many-statements
         mock_revoked.return_value = None
         from certbot import cert_manager
-        import datetime, pytz
+        import datetime
+        import pytz
         expiry = pytz.UTC.fromutc(datetime.datetime.utcnow())
 
         cert = mock.MagicMock(lineagename="nameone")
@@ -228,21 +226,21 @@ class CertificatesTest(BaseCertManagerTest):
         cert.target_expiry += datetime.timedelta(hours=2)
         # pylint: disable=protected-access
         out = get_report()
-        self.assertTrue('1 hour(s)' in out)
-        self.assertTrue('VALID' in out and not 'INVALID' in out)
+        self.assertTrue('1 hour(s)' in out or '2 hour(s)' in out)
+        self.assertTrue('VALID' in out and 'INVALID' not in out)
 
         cert.target_expiry += datetime.timedelta(days=1)
         # pylint: disable=protected-access
         out = get_report()
         self.assertTrue('1 day' in out)
         self.assertFalse('under' in out)
-        self.assertTrue('VALID' in out and not 'INVALID' in out)
+        self.assertTrue('VALID' in out and 'INVALID' not in out)
 
         cert.target_expiry += datetime.timedelta(days=2)
         # pylint: disable=protected-access
         out = get_report()
         self.assertTrue('3 days' in out)
-        self.assertTrue('VALID' in out and not 'INVALID' in out)
+        self.assertTrue('VALID' in out and 'INVALID'  not in out)
 
         cert.is_test_cert = True
         mock_revoked.return_value = True
@@ -589,7 +587,7 @@ class GetCertnameTest(unittest.TestCase):
         from certbot import cert_manager
         prompt = "Which certificate would you"
         self.mock_get_utility().menu.return_value = (display_util.OK, 0)
-        self.assertEquals(
+        self.assertEqual(
             cert_manager.get_certnames(
                 self.config, "verb", allow_multiple=False), ['example.com'])
         self.assertTrue(
@@ -603,11 +601,11 @@ class GetCertnameTest(unittest.TestCase):
         from certbot import cert_manager
         prompt = "custom prompt"
         self.mock_get_utility().menu.return_value = (display_util.OK, 0)
-        self.assertEquals(
+        self.assertEqual(
             cert_manager.get_certnames(
                 self.config, "verb", allow_multiple=False, custom_prompt=prompt),
             ['example.com'])
-        self.assertEquals(self.mock_get_utility().menu.call_args[0][0],
+        self.assertEqual(self.mock_get_utility().menu.call_args[0][0],
                           prompt)
 
     @mock.patch('certbot.storage.renewal_conf_files')
@@ -631,7 +629,7 @@ class GetCertnameTest(unittest.TestCase):
         prompt = "Which certificate(s) would you"
         self.mock_get_utility().checklist.return_value = (display_util.OK,
                                                           ['example.com'])
-        self.assertEquals(
+        self.assertEqual(
             cert_manager.get_certnames(
                 self.config, "verb", allow_multiple=True), ['example.com'])
         self.assertTrue(
@@ -646,11 +644,11 @@ class GetCertnameTest(unittest.TestCase):
         prompt = "custom prompt"
         self.mock_get_utility().checklist.return_value = (display_util.OK,
                                                           ['example.com'])
-        self.assertEquals(
+        self.assertEqual(
             cert_manager.get_certnames(
                 self.config, "verb", allow_multiple=True, custom_prompt=prompt),
             ['example.com'])
-        self.assertEquals(
+        self.assertEqual(
             self.mock_get_utility().checklist.call_args[0][0],
             prompt)
 

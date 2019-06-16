@@ -1,6 +1,5 @@
 """Tests for certbot_dns_rfc2136.dns_rfc2136."""
 
-import os
 import unittest
 
 import dns.flags
@@ -9,6 +8,7 @@ import dns.tsig
 import mock
 
 from certbot import errors
+from certbot.compat import os
 from certbot.plugins import dns_test_common
 from certbot.plugins.dns_test_common import DOMAIN
 from certbot.tests import util as test_util
@@ -64,7 +64,7 @@ class AuthenticatorTest(test_util.TempDirTestCase, dns_test_common.BaseAuthentic
 
     def test_valid_algorithm_passes(self):
         config = VALID_CONFIG.copy()
-        config["rfc2136_algorithm"] = "HMAC-SHA512"
+        config["rfc2136_algorithm"] = "HMAC-sha512"
         dns_test_common.write(config, self.config.rfc2136_credentials)
 
         self.auth.perform([self.achall])
@@ -171,7 +171,7 @@ class RFC2136ClientTest(unittest.TestCase):
         result = self.rfc2136_client._query_soa(DOMAIN)
 
         query_mock.assert_called_with(mock.ANY, SERVER, port=PORT)
-        self.assertTrue(result == True)
+        self.assertTrue(result)
 
     @mock.patch("dns.query.udp")
     def test_query_soa_not_found(self, query_mock):
@@ -181,7 +181,7 @@ class RFC2136ClientTest(unittest.TestCase):
         result = self.rfc2136_client._query_soa(DOMAIN)
 
         query_mock.assert_called_with(mock.ANY, SERVER, port=PORT)
-        self.assertTrue(result == False)
+        self.assertFalse(result)
 
     @mock.patch("dns.query.udp")
     def test_query_soa_wraps_errors(self, query_mock):

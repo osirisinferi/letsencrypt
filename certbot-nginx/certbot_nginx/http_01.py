@@ -1,16 +1,16 @@
 """A class that performs HTTP-01 challenges for Nginx"""
 
 import logging
-import os
 
 from acme import challenges
+from acme.magic_typing import List # pylint: disable=unused-import, no-name-in-module
 
 from certbot import errors
+from certbot.compat import os
 from certbot.plugins import common
 
 from certbot_nginx import obj
 from certbot_nginx import nginxparser
-from acme.magic_typing import List # pylint: disable=unused-import, no-name-in-module
 
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,6 @@ class NginxHttp01(common.ChallengePerformer):
         super(NginxHttp01, self).__init__(configurator)
         self.challenge_conf = os.path.join(
             configurator.config.config_dir, "le_http_01_cert_challenge.conf")
-        self._ipv6 = None
-        self._ipv6only = None
 
     def perform(self):
         """Perform a challenge on Nginx.
@@ -102,6 +100,7 @@ class NginxHttp01(common.ChallengePerformer):
         config = [self._make_or_mod_server_block(achall) for achall in self.achalls]
         config = [x for x in config if x is not None]
         config = nginxparser.UnspacedList(config)
+        logger.debug("Generated server block:\n%s", str(config))
 
         self.configurator.reverter.register_file_creation(
             True, self.challenge_conf)
@@ -120,9 +119,7 @@ class NginxHttp01(common.ChallengePerformer):
             self.configurator.config.http01_port)
         port = self.configurator.config.http01_port
 
-        if self._ipv6 is None or self._ipv6only is None:
-            self._ipv6, self._ipv6only = self.configurator.ipv6_info(port)
-        ipv6, ipv6only = self._ipv6, self._ipv6only
+        ipv6, ipv6only = self.configurator.ipv6_info(port)
 
         if ipv6:
             # If IPv6 is active in Nginx configuration
@@ -207,3 +204,4 @@ class NginxHttp01(common.ChallengePerformer):
                                 ' ', '$1', ' ', 'break']]
         self.configurator.parser.add_server_directives(vhost,
             rewrite_directive, insert_at_top=True)
+        return None

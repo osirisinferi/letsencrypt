@@ -4,6 +4,7 @@ import functools
 import hashlib
 import logging
 import socket
+import sys
 
 from cryptography.hazmat.primitives import hashes  # type: ignore
 import josepy as jose
@@ -14,15 +15,13 @@ import six
 from acme import errors
 from acme import crypto_util
 from acme import fields
+from acme import _TLSSNI01DeprecationModule
 
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=too-few-public-methods
-
-
 class Challenge(jose.TypedJSONObjectWithFields):
-    # _fields_to_partial_json | pylint: disable=abstract-method
+    # _fields_to_partial_json
     """ACME challenge."""
     TYPES = {}  # type: dict
 
@@ -36,7 +35,7 @@ class Challenge(jose.TypedJSONObjectWithFields):
 
 
 class ChallengeResponse(jose.TypedJSONObjectWithFields):
-    # _fields_to_partial_json | pylint: disable=abstract-method
+    # _fields_to_partial_json
     """ACME challenge response."""
     TYPES = {}  # type: dict
     resource_type = 'challenge'
@@ -95,6 +94,7 @@ class _TokenChallenge(Challenge):
         """
         # TODO: check that path combined with uri does not go above
         # URI_ROOT_PATH!
+        # pylint: disable=unsupported-membership-test
         return b'..' not in self.token and b'/' not in self.token
 
 
@@ -139,10 +139,14 @@ class KeyAuthorizationChallengeResponse(ChallengeResponse):
 
         return True
 
+    def to_partial_json(self):
+        jobj = super(KeyAuthorizationChallengeResponse, self).to_partial_json()
+        jobj.pop('keyAuthorization', None)
+        return jobj
+
 
 @six.add_metaclass(abc.ABCMeta)
 class KeyAuthorizationChallenge(_TokenChallenge):
-    # pylint: disable=abstract-class-little-used,too-many-ancestors
     """Challenge based on Key Authorization.
 
     :param response_cls: Subclass of `KeyAuthorizationChallengeResponse`
@@ -174,7 +178,7 @@ class KeyAuthorizationChallenge(_TokenChallenge):
         :rtype: KeyAuthorizationChallengeResponse
 
         """
-        return self.response_cls(
+        return self.response_cls(  # pylint: disable=not-callable
             key_authorization=self.key_authorization(account_key))
 
     @abc.abstractmethod
@@ -211,7 +215,7 @@ class DNS01Response(KeyAuthorizationChallengeResponse):
     """ACME dns-01 challenge response."""
     typ = "dns-01"
 
-    def simple_verify(self, chall, domain, account_public_key):
+    def simple_verify(self, chall, domain, account_public_key):  # pylint: disable=unused-argument
         """Simple verify.
 
         This method no longer checks DNS records and is a simple wrapper
@@ -227,7 +231,6 @@ class DNS01Response(KeyAuthorizationChallengeResponse):
         :rtype: bool
 
         """
-        # pylint: disable=unused-argument
         verified = self.verify(chall, account_public_key)
         if not verified:
             logger.debug("Verification of key authorization in response failed")
@@ -432,7 +435,6 @@ class TLSSNI01Response(KeyAuthorizationChallengeResponse):
         kwargs.setdefault("port", self.PORT)
         kwargs["name"] = self.z_domain
         # TODO: try different methods?
-        # pylint: disable=protected-access
         return crypto_util.probe_sni(**kwargs)
 
     def verify_cert(self, cert):
@@ -507,6 +509,17 @@ class TLSSNI01(KeyAuthorizationChallenge):
         return self.response(account_key).gen_cert(key=kwargs.get('cert_key'))
 
 
+@ChallengeResponse.register
+class TLSALPN01Response(KeyAuthorizationChallengeResponse):
+    """ACME TLS-ALPN-01 challenge response.
+
+    This class only allows initiating a TLS-ALPN-01 challenge returned from the
+    CA. Full support for responding to TLS-ALPN-01 challenges by generating and
+    serving the expected response certificate is not currently provided.
+    """
+    typ = "tls-alpn-01"
+
+
 @Challenge.register  # pylint: disable=too-many-ancestors
 class TLSALPN01(KeyAuthorizationChallenge):
     """ACME tls-alpn-01 challenge.
@@ -516,13 +529,14 @@ class TLSALPN01(KeyAuthorizationChallenge):
 
     """
     typ = "tls-alpn-01"
+    response_cls = TLSALPN01Response
 
     def validation(self, account_key, **kwargs):
         """Generate validation for the challenge."""
         raise NotImplementedError()
 
 
-@Challenge.register  # pylint: disable=too-many-ancestors
+@Challenge.register
 class DNS(_TokenChallenge):
     """ACME "dns" challenge."""
     typ = "dns"
@@ -603,3 +617,7 @@ class DNSResponse(ChallengeResponse):
 
         """
         return chall.check_validation(self.validation, account_public_key)
+
+
+# Patching ourselves to warn about TLS-SNI challenge deprecation and removal.
+sys.modules[__name__] = _TLSSNI01DeprecationModule(sys.modules[__name__])

@@ -1,27 +1,29 @@
 """Functionality for autorenewal and associated juggling of configurations"""
 from __future__ import print_function
+
 import copy
 import itertools
 import logging
-import os
+import random
+import sys
+import time
 import traceback
 
+import OpenSSL
 import six
 import zope.component
-
-import OpenSSL
 
 from acme.magic_typing import List  # pylint: disable=unused-import, no-name-in-module
 
 from certbot import cli
 from certbot import crypto_util
 from certbot import errors
-from certbot import interfaces
-from certbot import util
 from certbot import hooks
+from certbot import interfaces
 from certbot import storage
 from certbot import updater
-
+from certbot import util
+from certbot.compat import os
 from certbot.plugins import disco as plugins_disco
 
 logger = logging.getLogger(__name__)
@@ -32,10 +34,9 @@ logger = logging.getLogger(__name__)
 # the renewal configuration process loses this information.
 STR_CONFIG_ITEMS = ["config_dir", "logs_dir", "work_dir", "user_agent",
                     "server", "account", "authenticator", "installer",
-                    "standalone_supported_challenges", "renew_hook",
-                    "pre_hook", "post_hook", "tls_sni_01_address",
-                    "http01_address", "ecdsa_curve", "key_types"]
-INT_CONFIG_ITEMS = ["rsa_key_size", "tls_sni_01_port", "http01_port"]
+                    "renew_hook", "pre_hook", "post_hook", "http01_address",
+                    "ecdsa_curve", "key_types"]
+INT_CONFIG_ITEMS = ["rsa_key_size", "http01_port"]
 BOOL_CONFIG_ITEMS = ["must_staple", "allow_subset_of_names", "reuse_key",
                      "autorenew"]
 
@@ -106,11 +107,11 @@ def _restore_webroot_config(config, renewalparams):
     restoring logic is not able to correctly parse it from the serialized
     form.
     """
-    if "webroot_map" in renewalparams:
-        if not cli.set_by_cli("webroot_map"):
-            config.webroot_map = renewalparams["webroot_map"]
-    elif "webroot_path" in renewalparams:
-        logger.debug("Ancient renewal conf file without webroot-map, restoring webroot-path")
+    if "webroot_map" in renewalparams and not cli.set_by_cli("webroot_map"):
+        config.webroot_map = renewalparams["webroot_map"]
+    # To understand why webroot_path and webroot_map processing are not mutually exclusive,
+    # see https://github.com/certbot/certbot/pull/7095
+    if "webroot_path" in renewalparams and not cli.set_by_cli("webroot_path"):
         wp = renewalparams["webroot_path"]
         if isinstance(wp, six.string_types):  # prior to 0.1.0, webroot_path was a string
             wp = [wp]
@@ -276,8 +277,10 @@ def _avoid_invalidating_lineage(config, lineage, original_server):
     "Do not renew a valid cert with one from a staging server!"
     # Some lineages may have begun with --staging, but then had production certs
     # added to them
+    with open(lineage.cert) as the_file:
+        contents = the_file.read()
     latest_cert = OpenSSL.crypto.load_certificate(
-        OpenSSL.crypto.FILETYPE_PEM, open(lineage.cert).read())
+        OpenSSL.crypto.FILETYPE_PEM, contents)
     # all our test certs are from happy hacker fake CA, though maybe one day
     # we should test more methodically
     now_valid = "fake" not in repr(latest_cert.get_issuer()).lower()
@@ -301,7 +304,7 @@ def renew_cert(config, domains, le_client, lineage):
         domains = lineage.names()
     # The private key is the existing lineage private key if reuse_key is set.
     # Otherwise, generate a fresh private key by passing None.
-    new_key = lineage.privkey if config.reuse_key else None
+    new_key = os.path.normpath(lineage.privkey) if config.reuse_key else None
     new_cert, new_chain, new_key, _ = le_client.obtain_certificate(domains, new_key)
     if config.dry_run:
         logger.debug("Dry run: skipping updating lineage at %s",
@@ -359,7 +362,7 @@ def _renew_describe_results(config, renew_successes, renew_failures,
         notify_error(report(renew_failures, "failure"))
 
     if parse_failures:
-        notify("\nAdditionally, the following renewal configuration files "
+        notify("\nAdditionally, the following renewal configurations "
                "were invalid: ")
         notify(report(parse_failures, "parsefail"))
 
@@ -370,7 +373,7 @@ def _renew_describe_results(config, renew_successes, renew_failures,
     disp.notification("\n".join(out), wrap=False)
 
 
-def handle_renewal_request(config):
+def handle_renewal_request(config):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     """Examine each lineage; renew if due and report results"""
 
     # This is trivially False if config.domains is empty
@@ -394,6 +397,14 @@ def handle_renewal_request(config):
     renew_failures = []
     renew_skipped = []
     parse_failures = []
+
+    # Noninteractive renewals include a random delay in order to spread
+    # out the load on the certificate authority servers, even if many
+    # users all pick the same time for renewals.  This delay precedes
+    # running any hooks, so that side effects of the hooks (such as
+    # shutting down a web service) aren't prolonged unnecessarily.
+    apply_random_sleep = not sys.stdin.isatty() and config.random_sleep_on_renew
+
     for renewal_file in conf_files:
         disp = zope.component.getUtility(interfaces.IDisplay)
         disp.notification("Processing " + renewal_file, pause=False)
@@ -422,6 +433,15 @@ def handle_renewal_request(config):
                 from certbot import main
                 plugins = plugins_disco.PluginsRegistry.find_all()
                 if should_renew(lineage_config, renewal_candidate):
+                    # Apply random sleep upon first renewal if needed
+                    if apply_random_sleep:
+                        sleep_time = random.randint(1, 60 * 8)
+                        logger.info("Non-interactive renewal: random delay of %s seconds",
+                                    sleep_time)
+                        time.sleep(sleep_time)
+                        # We will sleep only once this day, folks.
+                        apply_random_sleep = False
+
                     # domains have been restored into lineage_config by reconstitute
                     # but they're unnecessary anyway because renew_cert here
                     # will just grab them from the certificate

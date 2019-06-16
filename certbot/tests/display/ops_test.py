@@ -1,6 +1,5 @@
 # coding=utf-8
 """Test certbot.display.ops."""
-import os
 import sys
 import unittest
 
@@ -10,14 +9,12 @@ import zope.component
 
 from acme import messages
 
+import certbot.tests.util as test_util
 from certbot import account
 from certbot import errors
-
-from certbot.display import util as display_util
+from certbot.compat import os
 from certbot.display import ops
-
-import certbot.tests.util as test_util
-
+from certbot.display import util as display_util
 
 KEY = jose.JWKRSA.load(test_util.load_vector("rsa512_key.pem"))
 
@@ -43,7 +40,7 @@ class GetEmailTest(unittest.TestCase):
         mock_input.return_value = (display_util.OK, "foo@bar.baz")
         with mock.patch("certbot.display.ops.util.safe_email") as mock_safe_email:
             mock_safe_email.return_value = True
-            self.assertTrue(self._call() is "foo@bar.baz")
+            self.assertTrue(self._call() == "foo@bar.baz")
 
     @test_util.patch_get_utility("certbot.display.ops.z_util")
     def test_ok_not_safe(self, mock_get_utility):
@@ -51,7 +48,7 @@ class GetEmailTest(unittest.TestCase):
         mock_input.return_value = (display_util.OK, "foo@bar.baz")
         with mock.patch("certbot.display.ops.util.safe_email") as mock_safe_email:
             mock_safe_email.side_effect = [False, True]
-            self.assertTrue(self._call() is "foo@bar.baz")
+            self.assertTrue(self._call() == "foo@bar.baz")
 
     @test_util.patch_get_utility("certbot.display.ops.z_util")
     def test_invalid_flag(self, mock_get_utility):
@@ -502,9 +499,9 @@ class ChooseValuesTest(unittest.TestCase):
         items = ["first", "second", "third"]
         mock_util().checklist.return_value = (display_util.OK, [items[2]])
         result = self._call(items, None)
-        self.assertEquals(result, [items[2]])
+        self.assertEqual(result, [items[2]])
         self.assertTrue(mock_util().checklist.called)
-        self.assertEquals(mock_util().checklist.call_args[0][0], None)
+        self.assertEqual(mock_util().checklist.call_args[0][0], None)
 
     @test_util.patch_get_utility("certbot.display.ops.z_util")
     def test_choose_names_success_question(self, mock_util):
@@ -512,9 +509,9 @@ class ChooseValuesTest(unittest.TestCase):
         question = "Which one?"
         mock_util().checklist.return_value = (display_util.OK, [items[1]])
         result = self._call(items, question)
-        self.assertEquals(result, [items[1]])
+        self.assertEqual(result, [items[1]])
         self.assertTrue(mock_util().checklist.called)
-        self.assertEquals(mock_util().checklist.call_args[0][0], question)
+        self.assertEqual(mock_util().checklist.call_args[0][0], question)
 
     @test_util.patch_get_utility("certbot.display.ops.z_util")
     def test_choose_names_user_cancel(self, mock_util):
@@ -522,9 +519,9 @@ class ChooseValuesTest(unittest.TestCase):
         question = "Want to cancel?"
         mock_util().checklist.return_value = (display_util.CANCEL, [])
         result = self._call(items, question)
-        self.assertEquals(result, [])
+        self.assertEqual(result, [])
         self.assertTrue(mock_util().checklist.called)
-        self.assertEquals(mock_util().checklist.call_args[0][0], question)
+        self.assertEqual(mock_util().checklist.call_args[0][0], question)
 
 
 if __name__ == "__main__":

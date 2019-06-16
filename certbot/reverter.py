@@ -2,8 +2,8 @@
 import csv
 import glob
 import logging
-import os
 import shutil
+import sys
 import time
 import traceback
 
@@ -14,7 +14,9 @@ from certbot import constants
 from certbot import errors
 from certbot import interfaces
 from certbot import util
-
+from certbot.compat import misc
+from certbot.compat import os
+from certbot.compat import filesystem
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class Reverter(object):
         self.config = config
 
         util.make_or_verify_dir(
-            config.backup_dir, constants.CONFIG_DIRS_MODE, os.geteuid(),
+            config.backup_dir, constants.CONFIG_DIRS_MODE, misc.os_geteuid(),
             self.config.strict_permissions)
 
     def revert_temporary_config(self):
@@ -148,7 +150,7 @@ class Reverter(object):
         if not backups:
             logger.info("Certbot has not saved backups of your configuration")
 
-            return
+            return None
         # Make sure there isn't anything unexpected in the backup folder
         # There should only be timestamped (float) directories
         try:
@@ -184,6 +186,7 @@ class Reverter(object):
             return os.linesep.join(output)
         zope.component.getUtility(interfaces.IDisplay).notification(
             os.linesep.join(output), force_interactive=True, pause=False)
+        return None
 
     def add_to_temp_checkpoint(self, save_files, save_notes):
         """Add files to temporary checkpoint.
@@ -219,7 +222,7 @@ class Reverter(object):
 
         """
         util.make_or_verify_dir(
-            cp_dir, constants.CONFIG_DIRS_MODE, os.geteuid(),
+            cp_dir, constants.CONFIG_DIRS_MODE, misc.os_geteuid(),
             self.config.strict_permissions)
 
         op_fd, existing_filepaths = self._read_and_append(
@@ -237,7 +240,7 @@ class Reverter(object):
                 try:
                     shutil.copy2(filename, os.path.join(
                         cp_dir, os.path.basename(filename) + "_" + str(idx)))
-                    op_fd.write(filename + os.linesep)
+                    op_fd.write('{0}\n'.format(filename))
                 # http://stackoverflow.com/questions/4726260/effective-use-of-python-shutil-copy2
                 except IOError:
                     op_fd.close()
@@ -312,7 +315,10 @@ class Reverter(object):
         """Run all commands in a file."""
         # NOTE: csv module uses native strings. That is, bytes on Python 2 and
         # unicode on Python 3
-        with open(filepath, 'r') as csvfile:
+        # It is strongly advised to set newline = '' on Python 3 with CSV,
+        # and it fixes problems on Windows.
+        kwargs = {'newline': ''} if sys.version_info[0] > 2 else {}
+        with open(filepath, 'r', **kwargs) as csvfile:  # type: ignore
             csvreader = csv.reader(csvfile)
             for command in reversed(list(csvreader)):
                 try:
@@ -381,7 +387,7 @@ class Reverter(object):
 
             for path in files:
                 if path not in ex_files:
-                    new_fd.write("{0}{1}".format(path, os.linesep))
+                    new_fd.write("{0}\n".format(path))
         except (IOError, OSError):
             logger.error("Unable to register file creation(s) - %s", files)
             raise errors.ReverterError(
@@ -408,11 +414,14 @@ class Reverter(object):
         """
         commands_fp = os.path.join(self._get_cp_dir(temporary), "COMMANDS")
         command_file = None
+        # It is strongly advised to set newline = '' on Python 3 with CSV,
+        # and it fixes problems on Windows.
+        kwargs = {'newline': ''} if sys.version_info[0] > 2 else {}
         try:
             if os.path.isfile(commands_fp):
-                command_file = open(commands_fp, "a")
+                command_file = open(commands_fp, "a", **kwargs)  # type: ignore
             else:
-                command_file = open(commands_fp, "w")
+                command_file = open(commands_fp, "w", **kwargs)  # type: ignore
 
             csvwriter = csv.writer(command_file)
             csvwriter.writerow(command)
@@ -433,7 +442,7 @@ class Reverter(object):
             cp_dir = self.config.in_progress_dir
 
         util.make_or_verify_dir(
-            cp_dir, constants.CONFIG_DIRS_MODE, os.geteuid(),
+            cp_dir, constants.CONFIG_DIRS_MODE, misc.os_geteuid(),
             self.config.strict_permissions)
 
         return cp_dir
@@ -575,7 +584,7 @@ class Reverter(object):
             timestamp = self._checkpoint_timestamp()
             final_dir = os.path.join(self.config.backup_dir, timestamp)
             try:
-                os.rename(self.config.in_progress_dir, final_dir)
+                filesystem.replace(self.config.in_progress_dir, final_dir)
                 return
             except OSError:
                 logger.warning("Extreme, unexpected race condition, retrying (%s)", timestamp)

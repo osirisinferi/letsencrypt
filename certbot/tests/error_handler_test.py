@@ -1,14 +1,16 @@
 """Tests for certbot.error_handler."""
 import contextlib
-import os
 import signal
 import sys
 import unittest
 
 import mock
+
 # pylint: disable=unused-import, no-name-in-module
 from acme.magic_typing import Callable, Dict, Union
 # pylint: enable=unused-import, no-name-in-module
+
+from certbot.compat import os
 
 
 def get_signals(signums):
@@ -66,6 +68,8 @@ class ErrorHandlerTest(unittest.TestCase):
                                                **self.init_kwargs)
 
     def test_context_manager_with_signal(self):
+        if not self.signals:
+            self.skipTest(reason='Signals cannot be handled on Windows.')
         init_signals = get_signals(self.signals)
         with signal_receiver(self.signals) as signals_received:
             with self.handler:
@@ -96,6 +100,8 @@ class ErrorHandlerTest(unittest.TestCase):
         bad_func.assert_called_once_with()
 
     def test_bad_recovery_with_signal(self):
+        if not self.signals:
+            self.skipTest(reason='Signals cannot be handled on Windows.')
         sig1 = self.signals[0]
         sig2 = self.signals[-1]
         bad_func = mock.MagicMock(side_effect=lambda: send_signal(sig1))
@@ -143,6 +149,7 @@ class ExitHandlerTest(ErrorHandlerTest):
         self.init_func.assert_called_once_with(*self.init_args,
                                                **self.init_kwargs)
         func.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()  # pragma: no cover

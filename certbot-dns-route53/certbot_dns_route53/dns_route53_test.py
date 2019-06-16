@@ -6,6 +6,7 @@ import mock
 from botocore.exceptions import NoCredentialsError, ClientError
 
 from certbot import errors
+from certbot.compat import os
 from certbot.plugins import dns_test_common
 from certbot.plugins.dns_test_common import DOMAIN
 
@@ -20,7 +21,17 @@ class AuthenticatorTest(unittest.TestCase, dns_test_common.BaseAuthenticatorTest
 
         self.config = mock.MagicMock()
 
+        # Set up dummy credentials for testing
+        os.environ["AWS_ACCESS_KEY_ID"] = "dummy_access_key"
+        os.environ["AWS_SECRET_ACCESS_KEY"] = "dummy_secret_access_key"
+
         self.auth = Authenticator(self.config, "route53")
+
+    def tearDown(self):
+        # Remove the dummy credentials from env vars
+        del os.environ["AWS_ACCESS_KEY_ID"]
+        del os.environ["AWS_SECRET_ACCESS_KEY"]
+        super(AuthenticatorTest, self).tearDown()
 
     def test_perform(self):
         self.auth._change_txt_record = mock.MagicMock()
@@ -117,7 +128,17 @@ class ClientTest(unittest.TestCase):
 
         self.config = mock.MagicMock()
 
+        # Set up dummy credentials for testing
+        os.environ["AWS_ACCESS_KEY_ID"] = "dummy_access_key"
+        os.environ["AWS_SECRET_ACCESS_KEY"] = "dummy_secret_access_key"
+
         self.client = Authenticator(self.config, "route53")
+
+    def tearDown(self):
+        # Remove the dummy credentials from env vars
+        del os.environ["AWS_ACCESS_KEY_ID"]
+        del os.environ["AWS_SECRET_ACCESS_KEY"]
+        super(ClientTest, self).tearDown()
 
     def test_find_zone_id_for_domain(self):
         self.client.r53.get_paginator = mock.MagicMock()

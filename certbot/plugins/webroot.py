@@ -4,7 +4,6 @@ import collections
 import errno
 import json
 import logging
-import os
 
 import six
 import zope.component
@@ -19,11 +18,11 @@ from certbot import achallenges  # pylint: disable=unused-import
 from certbot import cli
 from certbot import errors
 from certbot import interfaces
-from certbot.display import util as display_util
+from certbot.compat import os
 from certbot.display import ops
+from certbot.display import util as display_util
 from certbot.plugins import common
 from certbot.plugins import util
-
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +169,9 @@ to serve all files under specified web root ({0})."""
             old_umask = os.umask(0o022)
             try:
                 stat_path = os.stat(path)
-                for prefix in sorted(util.get_prefixes(self.full_roots[name]), key=len):
+                # We ignore the last prefix in the next iteration,
+                # as it does not correspond to a folder path ('/' or 'C:')
+                for prefix in sorted(util.get_prefixes(self.full_roots[name])[:-1], key=len):
                     try:
                         # This is coupled with the "umask" call above because
                         # os.mkdir's "mode" parameter may not always work:
@@ -180,7 +181,7 @@ to serve all files under specified web root ({0})."""
                         # Set owner as parent directory if possible
                         try:
                             os.chown(prefix, stat_path.st_uid, stat_path.st_gid)
-                        except OSError as exception:
+                        except (OSError, AttributeError) as exception:
                             logger.info("Unable to change owner and uid of webroot directory")
                             logger.debug("Error was: %s", exception)
                     except OSError as exception:
@@ -223,7 +224,7 @@ to serve all files under specified web root ({0})."""
                 self.performed[root_path].remove(achall)
 
         not_removed = []  # type: List[str]
-        while len(self._created_dirs) > 0:
+        while self._created_dirs:
             path = self._created_dirs.pop()
             try:
                 os.rmdir(path)
