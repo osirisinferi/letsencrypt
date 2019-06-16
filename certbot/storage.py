@@ -458,6 +458,7 @@ class RenewableCert(object):
         self.chain = self.configuration["chain"]
         self.fullchain = self.configuration["fullchain"]
         self.live_dir = os.path.dirname(self.cert)
+        self.key_types = self.configuration["key_types"]
 
         self._fix_symlinks()
         if update_symlinks:
