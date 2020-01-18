@@ -258,7 +258,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
 
     reasons = []
     if cert.is_test_cert:
-        reasons.append('\033[33mTEST_CERT\033[0m')
+        reasons.append('\033[1;33mTEST_CERT\033[0m')
     if cert.target_expiry <= now:
         reasons.append('\033[41;1;93mEXPIRED\033[0m')
     elif checker.ocsp_revoked(cert):
@@ -269,11 +269,11 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     else:
         diff = cert.target_expiry - now
         if diff.days == 1:
-            status = "\033[92mVALID\033[0m: 1 day"
+            status = "\033[1;92mVALID\033[0m: 1 day"
         elif diff.days < 1:
-            status = "\033[92mVALID\033[0m: {0} hour(s)".format(diff.seconds // 3600)
+            status = "\033[1;92mVALID\033[0m: {0} hour(s)".format(diff.seconds // 3600)
         else:
-            status = "\033[92mVALID\033[0m: {0} days".format(diff.days)
+            status = "\033[1;92mVALID\033[0m: {0} days".format(diff.days)
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
     certinfo.append("  \033[1;4mCertificate Name:   {0}\033[0m\n"
