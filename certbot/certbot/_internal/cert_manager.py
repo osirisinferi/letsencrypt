@@ -276,7 +276,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
             status = "\033[1;92mVALID\033[0m: {0} days".format(diff.days)
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
-    certinfo.append("  \033[1;4mCertificate Name:   {0}\033[0m\n"
+    certinfo.append("  \033[1;4mCertificate Name\033[0m:   \033[1;4m{0}\033[0m\n"
                     "    \033[1mDomains\033[0m:          {1}\n"
                     "    \033[1mExpiry Date\033[0m:      {2}\n"
                     "    \033[1mCertificate Path\033[0m: {3}\n"
