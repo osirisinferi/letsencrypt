@@ -258,29 +258,29 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
 
     reasons = []
     if cert.is_test_cert:
-        reasons.append('TEST_CERT')
+        reasons.append('\033[33mTEST_CERT\033[0m')
     if cert.target_expiry <= now:
-        reasons.append('EXPIRED')
+        reasons.append('\033[41;1;93mEXPIRED\033[0m')
     elif checker.ocsp_revoked(cert):
-        reasons.append('REVOKED')
+        reasons.append('\033[41;1;93mREVOKED\033[0m')
 
     if reasons:
-        status = "INVALID: " + ", ".join(reasons)
+        status = "\033[91mINVALID\033[0m: " + ", ".join(reasons)
     else:
         diff = cert.target_expiry - now
         if diff.days == 1:
-            status = "VALID: 1 day"
+            status = "\033[92mVALID\033[0m: 1 day"
         elif diff.days < 1:
-            status = "VALID: {0} hour(s)".format(diff.seconds // 3600)
+            status = "\033[92mVALID\033[0m: {0} hour(s)".format(diff.seconds // 3600)
         else:
-            status = "VALID: {0} days".format(diff.days)
+            status = "\033[92mVALID\033[0m: {0} days".format(diff.days)
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
-    certinfo.append("  Certificate Name: {0}\n"
-                    "    Domains: {1}\n"
-                    "    Expiry Date: {2}\n"
-                    "    Certificate Path: {3}\n"
-                    "    Private Key Path: {4}".format(
+    certinfo.append("  \033[1;4mCertificate Name: {0}\033[0m\n"
+                    "    \033[1mDomains\033[0m: {1}\n"
+                    "    \033[1mExpiry Date\033[0m: {2}\n"
+                    "    \033[1mCertificate Path\033[0m: {3}\n"
+                    "    \033[1mPrivate Key Path\033[0m: {4}".format(
                          cert.lineagename,
                          " ".join(cert.names()),
                          valid_string,
