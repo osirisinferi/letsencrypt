@@ -1,6 +1,7 @@
 """Tools for managing certificates."""
 import datetime
 import logging
+import sys
 import re
 import traceback
 
@@ -257,35 +258,53 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     now = pytz.UTC.fromutc(datetime.datetime.utcnow())
 
     reasons = []
+    reason  = ""
+    is_tty = sys.stdout.isatty()
     if cert.is_test_cert:
-        reasons.append('\033[1;33mTEST_CERT\033[0m')
+        reasons.append('{prepend}TEST_CERT{append}'.format(prepend=
+            util.ANSI_SGR_FG_YELLOW if is_tty else "", append=
+            util.ANSI_SGR_RESET if is_tty else ""))
     if cert.target_expiry <= now:
-        reasons.append('\033[41;1;93mEXPIRED\033[0m')
+        reasons.append('{prepend}EXPIRED{append}'.format(prepend=
+            util.ANSI_SGR_BG_RED+util.ANSI_SGR_BOLD+
+            util.ANSI_SGR_FG_BRIGHT_YELLOW if is_tty else "", append=
+            util.ANSI_SGR_RESET if is_tty else ""))
     elif checker.ocsp_revoked(cert):
-        reasons.append('\033[41;1;93mREVOKED\033[0m')
+        reasons.append('{prepend}REVOKED{append}'.format(prepend=
+            util.ANSI_SGR_BG_RED+util.ANSI_SGR_BOLD+
+            util.ANSI_SGR_FG_BRIGHT_YELLOW if is_ttyi else "", append=
+            util.ANSI_SGR_RESET if is_tty else ""))
 
     if reasons:
-        status = "\033[91mINVALID\033[0m: " + ", ".join(reasons)
+        status = "{prepend}INVALID{append}: ".format(prepend=util.ANSI_SGR_BOLD+
+            util.ANSI_SGR_FG_BRIGHT_RED if is_tty else "", apped=
+            util.ANSI_SGR_RESET if is_tty else "") + ", ".join(reasons)
     else:
         diff = cert.target_expiry - now
+        status = "{prepend}VALID{append}: ".format(prepend=
+            util.ANSI_SGR_FG_BRIGHT_GREEN if is_tty else "", append=
+            util.ANSI_SGR_RESET if is_tty else "")
         if diff.days == 1:
-            status = "\033[1;92mVALID\033[0m: 1 day"
+            status += "1 day"
         elif diff.days < 1:
-            status = "\033[1;92mVALID\033[0m: {0} hour(s)".format(diff.seconds // 3600)
+            status += "{0} hour(s)".format(diff.seconds // 3600)
         else:
-            status = "\033[1;92mVALID\033[0m: {0} days".format(diff.days)
+            status += "{0} days".format(diff.days)
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
-    certinfo.append("  \033[1;4mCertificate Name\033[0m:   \033[1;4m{0}\033[0m\n"
-                    "    \033[1mDomains\033[0m:          {1}\n"
-                    "    \033[1mExpiry Date\033[0m:      {2}\n"
-                    "    \033[1mCertificate Path\033[0m: {3}\n"
-                    "    \033[1mPrivate Key Path\033[0m: {4}".format(
+    certinfo.append("  {bold}{underline}Certificate Name{reset}:   {bold}{underline}{0}{reset}\n"
+                    "    {bold}Domains{reset}:          {1}\n"
+                    "    {bold}Expiry Date{reset}:      {2}\n"
+                    "    {bold}Certificate Path{reset}: {3}\n"
+                    "    {bold}Private Key Path{reset}: {4}".format(
                          cert.lineagename,
                          " ".join(cert.names()),
                          valid_string,
                          cert.fullchain,
-                         cert.privkey))
+                         cert.privkey,
+                         bold=util.ANSI_SGR_BOLD if is_tty else "",
+                         underline=util.ANSI_SGR_UNDERLINE if is_tty else "",
+                         reset=util.ANSI_SGR_RESET if is_tty else ""))
     return "".join(certinfo)
 
 def get_certnames(config, verb, allow_multiple=False, custom_prompt=None):
