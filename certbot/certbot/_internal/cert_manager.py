@@ -277,7 +277,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
 
     if reasons:
         status = "{prepend}INVALID{append}: ".format(prepend=util.ANSI_SGR_BOLD+
-            util.ANSI_SGR_FG_BRIGHT_RED if is_tty else "", apped=
+            util.ANSI_SGR_FG_BRIGHT_RED if is_tty else "", append=
             util.ANSI_SGR_RESET if is_tty else "") + ", ".join(reasons)
     else:
         diff = cert.target_expiry - now
