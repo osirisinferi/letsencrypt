@@ -8,12 +8,12 @@ import traceback
 import pytz
 import zope.component
 
-from acme.magic_typing import List  # pylint: disable=unused-import, no-name-in-module
+from acme.magic_typing import List
 from certbot import crypto_util
 from certbot import errors
 from certbot import interfaces
+from certbot import ocsp
 from certbot import util
-from certbot._internal import ocsp
 from certbot._internal import storage
 from certbot.compat import os
 from certbot.display import util as display_util
@@ -292,12 +292,15 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
             status += "{0} days".format(diff.days)
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
+    serial = format(crypto_util.get_serial_from_cert(cert.cert_path), 'x')
     certinfo.append("  {bold}{underline}Certificate Name{reset}:   {bold}{underline}{0}{reset}\n"
-                    "    {bold}Domains{reset}:          {1}\n"
-                    "    {bold}Expiry Date{reset}:      {2}\n"
-                    "    {bold}Certificate Path{reset}: {3}\n"
-                    "    {bold}Private Key Path{reset}: {4}".format(
+                    "    {bold}Serial Number{reset}:    {1}\n"
+                    "    {bold}Domains{reset}:          {2}\n"
+                    "    {bold}Expiry Date{reset}:      {3}\n"
+                    "    {bold}Certificate Path{reset}: {4}\n"
+                    "    {bold}Private Key Path{reset}: {5}".format(
                          cert.lineagename,
+                         serial,
                          " ".join(cert.names()),
                          valid_string,
                          cert.fullchain,

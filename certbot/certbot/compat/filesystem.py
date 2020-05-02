@@ -5,12 +5,9 @@ import errno
 import os  # pylint: disable=os-module-forbidden
 import stat
 
-from acme.magic_typing import List  # pylint: disable=unused-import, no-name-in-module
-from acme.magic_typing import Tuple  # pylint: disable=unused-import, no-name-in-module
-from acme.magic_typing import Union  # pylint: disable=unused-import, no-name-in-module
+from acme.magic_typing import List
 
 try:
-    # pylint: disable=import-error
     import ntsecuritycon
     import win32security
     import win32con
@@ -18,7 +15,6 @@ try:
     import win32file
     import pywintypes
     import winerror
-    # pylint: enable=import-error
 except ImportError:
     POSIX_MODE = True
 else:
@@ -263,7 +259,7 @@ def replace(src, dst):
     :param str dst: The new file path.
     """
     if hasattr(os, 'replace'):
-        # Use replace if possible. On Windows, only Python >= 3.4 is supported
+        # Use replace if possible. On Windows, only Python >= 3.5 is supported
         # so we can assume that os.replace() is always available for this platform.
         getattr(os, 'replace')(src, dst)
     else:

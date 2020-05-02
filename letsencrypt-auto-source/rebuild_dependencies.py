@@ -46,12 +46,6 @@ AUTHORITATIVE_CONSTRAINTS = {
     # certbot-auto failures on Python 3.6+ which enum34 doesn't support. See #5456.
     # TODO: hashin seems to overwrite environment markers in dependencies. This needs to be fixed.
     'enum34': '1.1.6 ; python_version < \'3.4\'',
-    # Newer versions of the packages below dropped support for python 3.4. Once
-    # Certbot does as well, we should unpin these dependencies.
-    'requests': '2.21.0',
-    'ConfigArgParse': '0.14.0',
-    'zope.hookable': '4.2.0',
-    'zope.interface': '4.6.0',
 }
 
 
@@ -109,7 +103,7 @@ def _requirements_from_one_distribution(distribution, verbose):
         os.chmod(script, 0o755)
 
         _write_to(authoritative_constraints, '\n'.join(
-            ['{0}=={1}'.format(package, version) for package, version in AUTHORITATIVE_CONSTRAINTS.items()]))
+            '{0}=={1}'.format(package, version) for package, version in AUTHORITATIVE_CONSTRAINTS.items()))
 
         command = ['docker', 'run', '--rm', '--cidfile', cid_file,
                    '-v', '{0}:/tmp/certbot'.format(CERTBOT_REPO_PATH),

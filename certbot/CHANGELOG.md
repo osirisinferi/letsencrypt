@@ -2,19 +2,84 @@
 
 Certbot adheres to [Semantic Versioning](https://semver.org/).
 
-## 1.2.0 - master
+## 1.4.0 - master
 
 ### Added
 
-*
+* Turn off session tickets for apache plugin by default when appropriate.
+* Added serial number of certificate to the output of `certbot certificates`
+* Expose two new environment variables in the authenticator and cleanup scripts used by
+  the `manual` plugin: `CERTBOT_REMAINING_CHALLENGES` is equal to the number of challenges
+  remaining after the current challenge, `CERTBOT_ALL_DOMAINS` is a comma-separated list
+  of all domains challenged for the current certificate.
+* Added TLS-ALPN-01 challenge support in the `acme` library. Support of this
+  challenge in the Certbot client is planned to be added in a future release.
+* Added minimal proxy support for OCSP verification.
+* On Windows, hooks are now executed in a Powershell shell instead of a CMD shell,
+  allowing both `*.ps1` and `*.bat` as valid scripts for Certbot.
+
+### Changed
+
+* Reorganized error message when a user entered an invalid email address.
+* Stop asking interactively if the user would like to add a redirect.
+* `mock` dependency is now conditional on Python 2 in all of our packages.
+* Deprecate certbot-auto on Gentoo, macOS, and FreeBSD.
+
+### Fixed
+
+* When using an RFC 8555 compliant endpoint, the `acme` library no longer sends the
+  `resource` field in any requests or the `type` field when responding to challenges.
+* Fix nginx plugin crash when non-ASCII configuration file is being read (instead,
+  the user will be warned that UTF-8 must be used).
+* Fix hanging OCSP queries during revocation checking - added a 10 second timeout.
+* Standalone servers now have a default socket timeout of 30 seconds, fixing
+  cases where an idle connection can cause the standalone plugin to hang.
+* Parsing of the RFC 8555 application/pem-certificate-chain now tolerates CRLF line
+  endings. This should fix interoperability with Buypass' services.
+
+More details about these changes can be found on our GitHub repo.
+
+## 1.3.0 - 2020-03-03
+
+### Added
+
+* Added certbot.ocsp Certbot's API. The certbot.ocsp module can be used to
+  determine the OCSP status of certificates.
+* Don't verify the existing certificate in HTTP01Response.simple_verify, for
+  compatibility with the real-world ACME challenge checks.
+* Added support for `$hostname` in nginx `server_name` directive
+
+### Changed
+
+* Certbot will now renew certificates early if they have been revoked according
+  to OCSP.
+* Fix acme module warnings when response Content-Type includes params (e.g. charset).
+* Fixed issue where webroot plugin would incorrectly raise `Read-only file system`
+  error when creating challenge directories (issue #7165).
+
+### Fixed
+
+* Fix Apache plugin to use less restrictive umask for making the challenge directory when a restrictive umask was set when certbot was started.
+
+More details about these changes can be found on our GitHub repo.
+
+## 1.2.0 - 2020-02-04
+
+### Added
+
+* Added support for Cloudflare's limited-scope API Tokens
 
 ### Changed
 
 * Add directory field to error message when field is missing.
+* If MD5 hasher is not available, try it in non-security mode (fix for FIPS systems) -- [#1948](https://github.com/certbot/certbot/issues/1948)
+* Disable old SSL versions and ciphersuites and remove `SSLCompression off` setting to follow Mozilla recommendations in Apache.
+* Remove ECDHE-RSA-AES128-SHA from NGINX ciphers list now that Windows 2008 R2 and Windows 7 are EOLed
+* Support for Python 3.4 has been removed.
 
 ### Fixed
 
-*
+* Fix collections.abc imports for Python 3.9.
 
 More details about these changes can be found on our GitHub repo.
 
