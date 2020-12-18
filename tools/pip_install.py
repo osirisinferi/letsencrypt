@@ -11,6 +11,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+import contextlib
 import os
 import re
 import shutil
@@ -21,6 +22,17 @@ import tempfile
 import merge_requirements as merge_module
 import readlink
 import strip_hashes
+
+
+# Once this code doesn't need to support Python 2, we can simply use
+# tempfile.TemporaryDirectory.
+@contextlib.contextmanager
+def temporary_directory():
+    dirpath = tempfile.mkdtemp()
+    try:
+        yield dirpath
+    finally:
+        shutil.rmtree(dirpath)
 
 
 def find_tools_path():
@@ -47,9 +59,13 @@ def certbot_normal_processing(tools_path, test_constraints):
     certbot_requirements = os.path.normpath(os.path.join(
         repo_path, 'letsencrypt-auto-source/pieces/dependency-requirements.txt'))
     with open(certbot_requirements, 'r') as fd:
-        data = fd.readlines()
+        certbot_reqs = fd.readlines()
+    with open(os.path.join(tools_path, 'pipstrap_constraints.txt'), 'r') as fd:
+        pipstrap_reqs = fd.readlines()
     with open(test_constraints, 'w') as fd:
-        data = "\n".join(strip_hashes.process_entries(data))
+        data_certbot = "\n".join(strip_hashes.process_entries(certbot_reqs))
+        data_pipstrap = "\n".join(strip_hashes.process_entries(pipstrap_reqs))
+        data = "\n".join([data_certbot, data_pipstrap])
         fd.write(data)
 
 
@@ -60,7 +76,8 @@ def merge_requirements(tools_path, requirements, test_constraints, all_constrain
     # Here is the order by increasing priority:
     # 1) The general development constraints (tools/dev_constraints.txt)
     # 2) The general tests constraints (oldest_requirements.txt or
-    #    certbot-auto's dependency-requirements.txt for the normal processing)
+    #    certbot-auto's dependency-requirements.txt + pipstrap's constraints
+    #    for the normal processing)
     # 3) The local requirement file, typically local-oldest-requirement in oldest tests
     files = [os.path.join(tools_path, 'dev_constraints.txt'), test_constraints]
     if requirements:
@@ -70,27 +87,24 @@ def merge_requirements(tools_path, requirements, test_constraints, all_constrain
         fd.write(merged_requirements)
 
 
-def call_with_print(command):
+def call_with_print(command, env=None):
+    if not env:
+        env = os.environ
     print(command)
-    subprocess.check_call(command, shell=True)
+    subprocess.check_call(command, shell=True, env=env)
 
 
-def pip_install_with_print(args_str):
-    command = '"{0}" -m pip install --disable-pip-version-check {1}'.format(sys.executable,
-                                                                            args_str)
-    call_with_print(command)
+def pip_install_with_print(args_str, env=None):
+    if not env:
+        env = os.environ
+    command = ['"', sys.executable, '" -m pip install --disable-pip-version-check ', args_str]
+    call_with_print(''.join(command), env=env)
 
 
 def main(args):
     tools_path = find_tools_path()
-    working_dir = tempfile.mkdtemp()
 
-    if os.environ.get('TRAVIS'):
-        # When this script is executed on Travis, the following print will make the log
-        # be folded until the end command is printed (see finally section).
-        print('travis_fold:start:install_certbot_deps')
-
-    try:
+    with temporary_directory() as working_dir:
         test_constraints = os.path.join(working_dir, 'test_constraints.txt')
         all_constraints = os.path.join(working_dir, 'all_constraints.txt')
 
@@ -105,24 +119,22 @@ def main(args):
             else:
                 certbot_normal_processing(tools_path, test_constraints)
 
+            env = os.environ.copy()
+            env["PIP_CONSTRAINT"] = all_constraints
+
             merge_requirements(tools_path, requirements, test_constraints, all_constraints)
             if requirements:  # This branch is executed during the oldest tests
                 # First step, install the transitive dependencies of oldest requirements
                 # in respect with oldest constraints.
-                pip_install_with_print('--constraint "{0}" --requirement "{1}"'
-                                       .format(all_constraints, requirements))
+                pip_install_with_print('--requirement "{0}"'.format(requirements),
+                                       env=env)
                 # Second step, ensure that oldest requirements themselves are effectively
                 # installed using --force-reinstall, and avoid corner cases like the one described
                 # in https://github.com/certbot/certbot/issues/7014.
                 pip_install_with_print('--force-reinstall --no-deps --requirement "{0}"'
                                        .format(requirements))
 
-            pip_install_with_print('--constraint "{0}" {1}'.format(
-                all_constraints, ' '.join(args)))
-    finally:
-        if os.environ.get('TRAVIS'):
-            print('travis_fold:end:install_certbot_deps')
-        shutil.rmtree(working_dir)
+            pip_install_with_print(' '.join(args), env=env)
 
 
 if __name__ == '__main__':

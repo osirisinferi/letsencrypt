@@ -46,30 +46,37 @@ def _compile_wheels(repo_path, build_path, venv_python):
     wheels_project = [os.path.join(repo_path, package) for package in certbot_packages]
 
     with _prepare_constraints(repo_path) as constraints_file_path:
-        command = [venv_python, '-m', 'pip', 'wheel', '-w', wheels_path, '--constraint', constraints_file_path]
+        env = os.environ.copy()
+        env['PIP_CONSTRAINT'] = constraints_file_path
+        command = [venv_python, '-m', 'pip', 'wheel', '-w', wheels_path]
         command.extend(wheels_project)
-        subprocess.check_call(command)
+        subprocess.check_call(command, env=env)
 
 
 def _prepare_build_tools(venv_path, venv_python, repo_path):
     print('Prepare build tools')
     subprocess.check_call([sys.executable, '-m', 'venv', venv_path])
-    subprocess.check_call([venv_python, os.path.join(repo_path, 'letsencrypt-auto-source', 'pieces', 'pipstrap.py')])
+    subprocess.check_call([venv_python, os.path.join(repo_path, 'tools', 'pipstrap.py')])
     subprocess.check_call([venv_python, os.path.join(repo_path, 'tools', 'pip_install.py'), 'pynsist'])
     subprocess.check_call(['choco', 'upgrade', '--allow-downgrade', '-y', 'nsis', '--version', NSIS_VERSION])
 
 
 @contextlib.contextmanager
 def _prepare_constraints(repo_path):
-    requirements = os.path.join(repo_path, 'letsencrypt-auto-source', 'pieces', 'dependency-requirements.txt')
-    constraints = subprocess.check_output(
-        [sys.executable, os.path.join(repo_path, 'tools', 'strip_hashes.py'), requirements],
+    reqs_certbot = os.path.join(repo_path, 'letsencrypt-auto-source', 'pieces', 'dependency-requirements.txt')
+    reqs_pipstrap = os.path.join(repo_path, 'tools', 'pipstrap_constraints.txt')
+    constraints_certbot = subprocess.check_output(
+        [sys.executable, os.path.join(repo_path, 'tools', 'strip_hashes.py'), reqs_certbot],
+        universal_newlines=True)
+    constraints_pipstrap = subprocess.check_output(
+        [sys.executable, os.path.join(repo_path, 'tools', 'strip_hashes.py'), reqs_pipstrap],
         universal_newlines=True)
     workdir = tempfile.mkdtemp()
     try:
         constraints_file_path = os.path.join(workdir, 'constraints.txt')
         with open(constraints_file_path, 'a') as file_h:
-            file_h.write(constraints)
+            file_h.write(constraints_pipstrap)
+            file_h.write(constraints_certbot)
             file_h.write('pywin32=={0}'.format(PYWIN32_VERSION))
         yield constraints_file_path
     finally:
@@ -177,7 +184,7 @@ def _prepare_environment():
 
 
 if __name__ == '__main__':
-    if not os.name == 'nt':
+    if os.name != 'nt':
         raise RuntimeError('This script must be run under Windows.')
 
     if ctypes.windll.shell32.IsUserAnAdmin() == 0:

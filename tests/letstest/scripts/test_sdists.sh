@@ -8,14 +8,17 @@ VENV_PATH=venv3
 # install OS packages
 sudo $BOOTSTRAP_SCRIPT
 
-if command -v python && [ $(python -V 2>&1 | cut -d" " -f 2 | cut -d. -f1,2 | sed 's/\.//') -eq 26 ]; then
-  # RHEL/CentOS 6 will need a special treatment, so we need to detect that environment
-  # Enable the SCL Python 3.6 installed by letsencrypt-auto bootstrap
-  PATH="/opt/rh/rh-python36/root/usr/bin:$PATH"
-fi
-
 # setup venv
-CERTBOT_PIP_NO_BINARY=:all: tools/venv3.py --requirement letsencrypt-auto-source/pieces/dependency-requirements.txt
+# We strip the hashes because the venv creation script includes unhashed
+# constraints in the commands given to pip and the mix of hashed and unhashed
+# packages makes pip error out.
+python3 tools/strip_hashes.py letsencrypt-auto-source/pieces/dependency-requirements.txt > requirements.txt
+# We also strip out the requirement for enum34 because it cannot be installed
+# in newer versions of Python 3, tools/strip_hashes.py removes the environment
+# marker that'd normally prevent it from being installed, and this package is
+# not needed for any OS tested here.
+sed -i '/enum34/d' requirements.txt
+CERTBOT_PIP_NO_BINARY=:all: tools/venv3.py --requirement requirements.txt
 . "$VENV_PATH/bin/activate"
 # pytest is needed to run tests on some of our packages so we install a pinned version here.
 tools/pip_install.py pytest
@@ -40,7 +43,7 @@ for pkg in acme certbot $PLUGINS; do
     tar -xvf "$pkg-$VERSION.tar.gz"
     cd "$pkg-$VERSION"
     python setup.py build
-    python setup.py test
+    python -m pytest
     python setup.py install
     cd -
 done

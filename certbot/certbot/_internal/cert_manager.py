@@ -66,6 +66,7 @@ def rename_lineage(config):
     disp.notification("Successfully renamed {0} to {1}."
         .format(certname, new_certname), pause=False)
 
+
 def certificates(config):
     """Display information about certs configured with Certbot
 
@@ -88,14 +89,22 @@ def certificates(config):
     # Describe all the certs
     _describe_certs(config, parsed_certs, parse_failures)
 
+
 def delete(config):
     """Delete Certbot files associated with a certificate lineage."""
     certnames = get_certnames(config, "delete", allow_multiple=True)
+    disp = zope.component.getUtility(interfaces.IDisplay)
+    msg = ["The following certificate(s) are selected for deletion:\n"]
+    for certname in certnames:
+        msg.append("  * " + certname)
+    msg.append("\nAre you sure you want to delete the above certificate(s)?")
+    if not disp.yesno("\n".join(msg), default=True):
+        logger.info("Deletion of certificate(s) canceled.")
+        return
     for certname in certnames:
         storage.delete_files(config, certname)
-        disp = zope.component.getUtility(interfaces.IDisplay)
-        disp.notification("Deleted all files relating to certificate {0}."
-            .format(certname), pause=False)
+        display_util.notify("Deleted all files relating to certificate {0}."
+                            .format(certname))
 
 ###################
 # Public Helpers
@@ -117,10 +126,12 @@ def lineage_for_certname(cli_config, certname):
         logger.debug("Traceback was:\n%s", traceback.format_exc())
         return None
 
+
 def domains_for_certname(config, certname):
     """Find the domains in the cert with name certname."""
     lineage = lineage_for_certname(config, certname)
     return lineage.names() if lineage else None
+
 
 def find_duplicative_certs(config, domains):
     """Find existing certs that match the given domain names.
@@ -166,6 +177,7 @@ def find_duplicative_certs(config, domains):
 
     return _search_lineages(config, update_certs_for_domain_matches, (None, None))
 
+
 def _archive_files(candidate_lineage, filetype):
     """ In order to match things like:
         /etc/letsencrypt/archive/example.com/chain1.pem.
@@ -187,6 +199,7 @@ def _archive_files(candidate_lineage, filetype):
         return pattern
     return None
 
+
 def _acceptable_matches():
     """ Generates the list that's passed to match_and_check_overlaps. Is its own function to
     make unit testing easier.
@@ -196,6 +209,7 @@ def _acceptable_matches():
     """
     return [lambda x: x.fullchain_path, lambda x: x.cert_path,
             lambda x: _archive_files(x, "cert"), lambda x: _archive_files(x, "fullchain")]
+
 
 def cert_path_to_lineage(cli_config):
     """ If config.cert_path is defined, try to find an appropriate value for config.certname.
@@ -212,6 +226,7 @@ def cert_path_to_lineage(cli_config):
     match = match_and_check_overlaps(cli_config, acceptable_matches,
             lambda x: cli_config.cert_path[0], lambda x: x.lineagename)
     return match[0]
+
 
 def match_and_check_overlaps(cli_config, acceptable_matches, match_func, rv_func):
     """ Searches through all lineages for a match, and checks for duplicates.
@@ -295,12 +310,14 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     serial = format(crypto_util.get_serial_from_cert(cert.cert_path), 'x')
     certinfo.append("  {bold}{underline}Certificate Name{reset}:   {bold}{underline}{0}{reset}\n"
                     "    {bold}Serial Number{reset}:    {1}\n"
-                    "    {bold}Domains{reset}:          {2}\n"
-                    "    {bold}Expiry Date{reset}:      {3}\n"
-                    "    {bold}Certificate Path{reset}: {4}\n"
-                    "    {bold}Private Key Path{reset}: {5}".format(
+                    "    {bold}Key Type:{reset}:        {2}\n"
+                    "    {bold}Domains{reset}:          {3}\n"
+                    "    {bold}Expiry Date{reset}:      {4}\n"
+                    "    {bold}Certificate Path{reset}: {5}\n"
+                    "    {bold}Private Key Path{reset}: {6}".format(
                          cert.lineagename,
                          serial,
+                         cert.private_key_type,
                          " ".join(cert.names()),
                          valid_string,
                          cert.fullchain,
@@ -309,6 +326,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
                          underline=util.ANSI_SGR_UNDERLINE if is_tty else "",
                          reset=util.ANSI_SGR_RESET if is_tty else ""))
     return "".join(certinfo)
+
 
 def get_certnames(config, verb, allow_multiple=False, custom_prompt=None):
     """Get certname from flag, interactively, or error out.
@@ -349,9 +367,11 @@ def get_certnames(config, verb, allow_multiple=False, custom_prompt=None):
 # Private Helpers
 ###################
 
+
 def _report_lines(msgs):
     """Format a results report for a category of single-line renewal outcomes"""
     return "  " + "\n  ".join(str(msg) for msg in msgs)
+
 
 def _report_human_readable(config, parsed_certs):
     """Format a results report for a parsed cert"""
@@ -359,6 +379,7 @@ def _report_human_readable(config, parsed_certs):
     for cert in parsed_certs:
         certinfo.append(human_readable_cert_info(config, cert))
     return "\n".join(certinfo)
+
 
 def _describe_certs(config, parsed_certs, parse_failures):
     """Print information about the certs we know about"""
@@ -380,6 +401,7 @@ def _describe_certs(config, parsed_certs, parse_failures):
 
     disp = zope.component.getUtility(interfaces.IDisplay)
     disp.notification("\n".join(out), pause=False, wrap=False)
+
 
 def _search_lineages(cli_config, func, initial_rv, *args):
     """Iterate func over unbroken lineages, allowing custom return conditions.

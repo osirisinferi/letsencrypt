@@ -9,7 +9,6 @@ import re
 import socket
 import time
 
-import six
 import zope.component
 import zope.interface
 try:
@@ -328,6 +327,9 @@ class ApacheConfigurator(common.Installer):
         if self.version < (2, 2):
             raise errors.NotSupportedError(
                 "Apache Version {0} not supported.".format(str(self.version)))
+        elif self.version < (2, 4):
+            logger.warning('Support for Apache 2.2 is deprecated and will be removed in a '
+                           'future release.')
 
         # Recover from previous crash before Augeas initialization to have the
         # correct parse tree from the get go.
@@ -464,21 +466,6 @@ class ApacheConfigurator(common.Installer):
             metadata=metadata
         )
 
-    def _wildcard_domain(self, domain):
-        """
-        Checks if domain is a wildcard domain
-
-        :param str domain: Domain to check
-
-        :returns: If the domain is wildcard domain
-        :rtype: bool
-        """
-        if isinstance(domain, six.text_type):
-            wildcard_marker = u"*."
-        else:
-            wildcard_marker = b"*."
-        return domain.startswith(wildcard_marker)
-
     def deploy_cert(self, domain, cert_path, key_path,
                     chain_path=None, fullchain_path=None):
         """Deploys certificate to specified virtual host.
@@ -513,7 +500,7 @@ class ApacheConfigurator(common.Installer):
         :rtype: `list` of :class:`~certbot_apache._internal.obj.VirtualHost`
         """
 
-        if self._wildcard_domain(domain):
+        if util.is_wildcard_domain(domain):
             if domain in self._wildcard_vhosts:
                 # Vhosts for a wildcard domain were already selected
                 return self._wildcard_vhosts[domain]
@@ -1462,7 +1449,7 @@ class ApacheConfigurator(common.Installer):
         if not line.lower().lstrip().startswith("rewriterule"):
             return False
 
-        # According to: http://httpd.apache.org/docs/2.4/rewrite/flags.html
+        # According to: https://httpd.apache.org/docs/2.4/rewrite/flags.html
         # The syntax of a RewriteRule is:
         # RewriteRule pattern target [Flag1,Flag2,Flag3]
         # i.e. target is required, so it must exist.

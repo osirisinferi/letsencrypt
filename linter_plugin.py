@@ -4,13 +4,15 @@ Certbot PyLint plugin.
 The built-in ImportChecker of Pylint does a similar job to ForbidStandardOsModule to detect
 deprecated modules. You can check its behavior as a reference to what is coded here.
 See https://github.com/PyCQA/pylint/blob/b20a2984c94e2946669d727dbda78735882bf50a/pylint/checkers/imports.py#L287
-See http://docs.pylint.org/plugins.html
+See https://docs.pytest.org/en/latest/writing_plugins.html
 """
 from pylint.checkers import BaseChecker
 from pylint.interfaces import IAstroidChecker
 
 # Modules in theses packages can import the os module.
-WHITELIST_PACKAGES = ['acme', 'certbot_compatibility_test', 'lock_test']
+WHITELIST_PACKAGES = [
+    'acme', 'certbot_integration_tests', 'certbot_compatibility_test', 'lock_test'
+]
 
 
 class ForbidStandardOsModule(BaseChecker):
@@ -25,8 +27,8 @@ class ForbidStandardOsModule(BaseChecker):
         'E5001': (
             'Forbidden use of os module, certbot.compat.os must be used instead',
             'os-module-forbidden',
-            'Some methods from the standard os module cannot be used for security reasons on Windows: '
-            'the safe wrapper certbot.compat.os must be used instead in Certbot.'
+            'Some methods from the standard os module cannot be used for security reasons on '
+            'Windows: the safe wrapper certbot.compat.os must be used instead in Certbot.'
         )
     }
     priority = -1
