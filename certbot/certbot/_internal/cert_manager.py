@@ -310,7 +310,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     serial = format(crypto_util.get_serial_from_cert(cert.cert_path), 'x')
     certinfo.append("  {bold}{underline}Certificate Name{reset}:   {bold}{underline}{0}{reset}\n"
                     "    {bold}Serial Number{reset}:    {1}\n"
-                    "    {bold}Key Type:{reset}:        {2}\n"
+                    "    {bold}Key Type{reset}:         {2}\n"
                     "    {bold}Domains{reset}:          {3}\n"
                     "    {bold}Expiry Date{reset}:      {4}\n"
                     "    {bold}Certificate Path{reset}: {5}\n"
