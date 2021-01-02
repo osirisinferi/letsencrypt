@@ -287,7 +287,7 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     elif checker.ocsp_revoked(cert):
         reasons.append('{prepend}REVOKED{append}'.format(prepend=
             util.ANSI_SGR_BG_RED+util.ANSI_SGR_BOLD+
-            util.ANSI_SGR_FG_BRIGHT_YELLOW if is_ttyi else "", append=
+            util.ANSI_SGR_FG_BRIGHT_YELLOW if is_tty else "", append=
             util.ANSI_SGR_RESET if is_tty else ""))
 
     if reasons:
