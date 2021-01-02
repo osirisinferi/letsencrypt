@@ -297,8 +297,8 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
     else:
         diff = cert.target_expiry - now
         status = "{prepend}VALID{append}: ".format(prepend=
-            util.ANSI_SGR_FG_BRIGHT_GREEN if is_tty else "", append=
-            util.ANSI_SGR_RESET if is_tty else "")
+            util.ANSI_SGR_FG_BRIGHT_GREEN+util.ANSI_SGR_BOLD if is_tty else "",
+            append=util.ANSI_SGR_RESET if is_tty else "")
         if diff.days == 1:
             status += "1 day"
         elif diff.days < 1:
@@ -308,13 +308,13 @@ def human_readable_cert_info(config, cert, skip_filter_checks=False):
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
     serial = format(crypto_util.get_serial_from_cert(cert.cert_path), 'x')
-    certinfo.append("  {bold}{underline}Certificate Name{reset}:   {bold}{underline}{0}{reset}\n"
-                    "    {bold}Serial Number{reset}:    {1}\n"
-                    "    {bold}Key Type{reset}:         {2}\n"
-                    "    {bold}Domains{reset}:          {3}\n"
-                    "    {bold}Expiry Date{reset}:      {4}\n"
-                    "    {bold}Certificate Path{reset}: {5}\n"
-                    "    {bold}Private Key Path{reset}: {6}".format(
+    certinfo.append("  {bold}Certificate Name{reset}:   {underline}{0}{reset}\n"
+                    "    Serial Number:    {1}\n"
+                    "    Key Type:         {2}\n"
+                    "    Domains:          {3}\n"
+                    "    Expiry Date:      {4}\n"
+                    "    Certificate Path: {5}\n"
+                    "    Private Key Path: {6}".format(
                          cert.lineagename,
                          serial,
                          cert.private_key_type,
